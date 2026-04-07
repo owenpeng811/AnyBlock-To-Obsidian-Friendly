@@ -4,7 +4,6 @@ import sys
 from anyblock_exporter import (
     parse_arguments,
     setup_logger,
-    get_logger,
     AnytypeConverter,
     config
 )
