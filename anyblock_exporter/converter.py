@@ -88,13 +88,14 @@ class AnytypeConverter:
 
     def extract_creation_date(self, main_content: Dict[str, Any]) -> str:
         try:
-            created_date = main_content['snapshot']['data']['details'].get('createdDate')
+            details = main_content.get('snapshot', {}).get('data', {}).get('details') or {}
+            created_date = details.get('createdDate')
             if created_date:
                 return datetime.fromtimestamp(created_date).strftime('%Y-%m-%d %H:%M:%S')
             else:
                 self.logger.warning("Creation date not found in main content file")
                 return "Unknown creation date"
-        except KeyError as e:
+        except (KeyError, TypeError) as e:
             self.logger.error(f"Error extracting creation date: {str(e)}")
             return "Unknown creation date"
         
@@ -124,8 +125,8 @@ class AnytypeConverter:
         return False  # No children or descendants
 
     def compile_markdown(self, main_content: Dict[str, Any]) -> str:
-        title = main_content['snapshot']['data']['details'].get('name', 'Untitled')
-        blocks = main_content['snapshot']['data'].get('blocks', [])
+        title = (main_content.get('snapshot', {}).get('data', {}).get('details') or {}).get('name', 'Untitled')
+        blocks = main_content.get('snapshot', {}).get('data', {}).get('blocks', [])
         relations = self.relation_handler.extract_relations(main_content)
 
         markdown_content = "---\n"
@@ -137,7 +138,7 @@ class AnytypeConverter:
         markdown_content += "---\n\n"
 
         # Use the new process_blocks function
-        markdown_content += process_blocks(blocks, self.file_handler)
+        markdown_content += process_blocks(blocks, self.file_handler, self.relation_handler.page_name_cache)
 
         return markdown_content
         
