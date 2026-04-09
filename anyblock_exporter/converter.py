@@ -138,7 +138,7 @@ class AnytypeConverter:
         markdown_content += "---\n\n"
 
         # Use the new process_blocks function
-        markdown_content += process_blocks(blocks, self.file_handler, self.relation_handler.page_name_cache)
+        markdown_content += process_blocks(blocks, self.file_handler, self.relation_handler.page_name_cache, self.relation_handler)
 
         return markdown_content
         

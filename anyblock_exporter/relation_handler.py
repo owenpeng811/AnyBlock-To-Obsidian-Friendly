@@ -131,3 +131,27 @@ class RelationHandler:
             if obj.get('sbType') == 'STRelationOption' and details.get('id') == option_id:
                 return details.get('name', option_id)
         return str(option_id)  # Return the ID as a string if the name is not found
+
+    def resolve_name(self, obj_id: str) -> str:
+        """Generic name resolver for pages, relations, types, etc."""
+        if not obj_id:
+            return ""
+        # 1. Check page/object names
+        if obj_id in self.page_name_cache:
+            return self.page_name_cache[obj_id]
+        
+        # 2. Check relations
+        rel_info = self.get_relation_info(obj_id)
+        if rel_info and rel_info.get('name'):
+            return rel_info['name']
+            
+        # 3. Check types
+        for obj in self.json_objects:
+            if obj.get('sbType') == 'STType':
+                data = obj.get('snapshot', {}).get('data', {}) or {}
+                details = data.get('details', {}) or {}
+                if details.get('id') == obj_id:
+                    return details.get('name', obj_id)
+        
+        # 4. Check relation options
+        return self.get_relation_option_name(obj_id)
