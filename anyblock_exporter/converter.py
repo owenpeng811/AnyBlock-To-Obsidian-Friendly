@@ -125,8 +125,11 @@ class AnytypeConverter:
         return False  # No children or descendants
 
     def compile_markdown(self, main_content: Dict[str, Any]) -> str:
-        title = (main_content.get('snapshot', {}).get('data', {}).get('details') or {}).get('name', 'Untitled')
-        blocks = main_content.get('snapshot', {}).get('data', {}).get('blocks', [])
+        snapshot = main_content.get('snapshot') or {}
+        data = snapshot.get('data') or {}
+        data_details = data.get('details') or {}
+        title = data_details.get('name', 'Untitled')
+        blocks = data.get('blocks') or []
         relations = self.relation_handler.extract_relations(main_content)
 
         markdown_content = "---\n"
@@ -224,13 +227,20 @@ class AnytypeConverter:
             main_contents = self.identify_main_content_files()
             os.makedirs(self.attachments_folder, exist_ok=True)
             for main_content in main_contents:
+                object_id = "Unknown ID"
                 try:
-                    self.logger.debug(f"Processing content: {main_content.get('id', 'Unknown ID')}")
+                    snapshot = main_content.get('snapshot') or {}
+                    data = snapshot.get('data') or {}
+                    details = data.get('details') or {}
+                    title = details.get('name', 'Untitled')
+                    object_id = details.get('id') or main_content.get('id') or "Unknown ID"
+                    
+                    self.logger.debug(f"Processing object: {object_id} ({title})")
                     markdown_content = self.compile_markdown(main_content)
-                    title = main_content['snapshot']['data']['details'].get('name', 'Untitled')
                     self.write_markdown_file(markdown_content, title)
                 except Exception as e:
-                    self.logger.error(f"Error processing file {main_content.get('id', 'Unknown ID')}: {str(e)}")
+                    self.logger.error(f"Error processing object {object_id}: {str(e)}")
+                    self.logger.error(traceback.format_exc())
             self.file_handler.copy_all_files()
         except Exception as e:
             self.logger.error(f"Error in process_all_files: {str(e)}")

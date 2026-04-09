@@ -207,15 +207,15 @@ def convert_block_to_markdown(block: Dict[str, Any], all_blocks: Dict[str, Any],
     elif block_type == 'Code':
         fields = block.get('fields') or {}
         lang = fields.get('lang', '')
-        code_block = f"\n```{lang}\n{content}\n```\n"
-        markdown += apply_indent(code_block) + spacing
+        # Code blocks usually want a bit of space even when nested
+        markdown += apply_indent(f"```{lang}\n{content}\n```") + spacing
     elif block_type == 'Checkbox':
         text_data = block.get('text') or {}
         checked = '[x]' if text_data.get('checked', False) else '[ ]'
         markdown += apply_indent(f"- {checked} {content}") + "\n"
-    elif block.get('latex'):
-        latex_text = block['latex'].get('text', '')
-        if block['latex'].get('processor') == 'Mermaid':
+    elif block_type == 'Equation' or block.get('latex'):
+        latex_text = (block.get('latex') or {}).get('text') or content
+        if (block.get('latex') or {}).get('processor') == 'Mermaid':
             markdown += apply_indent(f"```mermaid\n{latex_text}\n```") + spacing
         else:
             markdown += apply_indent(format_latex_equation(latex_text)) + spacing
