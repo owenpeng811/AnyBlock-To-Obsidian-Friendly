@@ -131,6 +131,8 @@ def is_organizational_block(block: Dict[str, Any]) -> bool:
     layout_style = (block.get('layout') or {}).get('style', '')
     if layout_style in ['Div', 'TableColumns', 'TableRows', 'TableRowsContainer', 'TableColumn', 'TableRow']:
         return True
+    if 'latex' in block:
+        return False
     return not (block.get('text') or {}).get('text', '')
 
 def has_unique_children(block: Dict[str, Any], all_blocks: Dict[str, Any], processed_blocks: set) -> bool:
