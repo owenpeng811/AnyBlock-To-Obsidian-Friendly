@@ -211,6 +211,8 @@ def convert_block_to_markdown(block: Dict[str, Any], all_blocks: Dict[str, Any],
         lang = fields.get('lang', '')
         if lang == 'clike':
             lang = 'c'
+        if lang == 'git':
+            lang = 'diff'
         # Code blocks usually want a bit of space even when nested
         markdown += apply_indent(f"```{lang}\n{content}\n```") + spacing
     elif block_type == 'Checkbox':
