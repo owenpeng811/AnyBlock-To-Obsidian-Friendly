@@ -62,6 +62,10 @@ class RelationHandler:
             value = details.get(key)
             relation_info = self.get_relation_info(key)
             relation_name = relation_info.get('name', key)
+            
+            # Special case for Obsidian system tags
+            if relation_name.lower() == 'tag':
+                relation_name = 'tags'
 
             if value is not None:
                 if isinstance(value, list):
@@ -88,6 +92,14 @@ class RelationHandler:
         
         if is_date:
             return converted_value  # Return date without wrapping in links
+        
+        # Special case for Obsidian system tags: return plain text and replace spaces with hyphens
+        if key == 'tag':
+            return converted_value.replace(' ', '-')
+            
+        # Avoid wrapping URLs or URIs in brackets
+        if isinstance(converted_value, str) and ("://" in converted_value or converted_value.startswith(('http', 'https', 'telnet', 'ssh'))):
+            return f'"{converted_value}"'
         
         if self.link_mode == 'all':
             return f'"[[{converted_value}]]"'
