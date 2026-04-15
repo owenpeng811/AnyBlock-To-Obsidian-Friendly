@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from .config_loader import config
+from .utils import sanitize_filename
 
 class RelationHandler:
     def __init__(self, json_objects: List[Dict[str, Any]]):
@@ -12,6 +13,23 @@ class RelationHandler:
         self.ignored_properties = config.get('ignored_properties', [])
         self.link_mode = config.get('turn_relations_into_obsidian_links', 'select')
         self.logger = logging.getLogger("anyblock_exporter")
+        self.page_name_cache = {}
+        for obj in self.json_objects:
+            data = obj.get('snapshot', {}).get('data', {}) or {}
+            details = data.get('details', {}) or {}
+            
+            # Try to get ID from various possible locations
+            obj_id = details.get('id') or details.get('relationKey')
+            if not obj_id:
+                blocks = data.get('blocks', [])
+                if blocks:
+                    obj_id = blocks[0].get('id')
+            
+            # Get Name
+            obj_name = details.get('name') or obj.get('name')
+            
+            if obj_id and obj_name:
+                self.page_name_cache[obj_id] = obj_name
 
     def convert_timestamp_if_applicable(self, value: Any) -> Tuple[str, bool]:
         is_date = False
@@ -24,12 +42,17 @@ class RelationHandler:
                 return adjusted_date.strftime("%Y-%m-%d"), is_date
             except Exception as e:
                 self.logger.warning(f"Failed to convert timestamp {value}: {str(e)}")
+        # Try to resolve Page ID to name first
+        if value in self.page_name_cache and self.page_name_cache[value]:
+            return sanitize_filename(self.page_name_cache[value]), is_date
+            
         return self.get_relation_option_name(value), is_date
 
     def extract_relations(self, main_content: Dict[str, Any]) -> List[str]:
         relations = {}
-        details = main_content['snapshot']['data']['details']
-        relation_links = main_content['snapshot']['data']['relationLinks']
+        data = main_content.get('snapshot', {}).get('data', {}) or {}
+        details = data.get('details', {}) or {}
+        relation_links = data.get('relationLinks', []) or []
 
         for relation_link in relation_links:
             key = relation_link['key']
@@ -76,9 +99,11 @@ class RelationHandler:
     def relation_has_options(self, relation_key: str) -> bool:
         """Checks if a relation has pre-defined options."""
         for obj in self.json_objects:
-            if obj.get('sbType') == 'STRelation' and obj['snapshot']['data']['details'].get('relationKey') == relation_key:
+            data = obj.get('snapshot', {}).get('data', {}) or {}
+            details = data.get('details', {}) or {}
+            if obj.get('sbType') == 'STRelation' and details.get('relationKey') == relation_key:
                 # Check if relationFormat is 0, indicating free-form text
-                if obj['snapshot']['data']['details'].get('relationFormat') == 0:
+                if details.get('relationFormat') == 0:
                     return False
                 else:
                     return True
@@ -89,8 +114,10 @@ class RelationHandler:
             return self.relation_cache[relation_key]
 
         for obj in self.json_objects:
-            if obj.get('sbType') == 'STRelation' and obj['snapshot']['data']['details'].get('relationKey') == relation_key:
-                self.relation_cache[relation_key] = obj['snapshot']['data']['details']
+            data = obj.get('snapshot', {}).get('data', {}) or {}
+            details = data.get('details', {}) or {}
+            if obj.get('sbType') == 'STRelation' and details.get('relationKey') == relation_key:
+                self.relation_cache[relation_key] = details
                 return self.relation_cache[relation_key]
 
         self.logger.warning(f"Relation info not found for key: {relation_key}")
@@ -99,6 +126,8 @@ class RelationHandler:
     def get_relation_option_name(self, option_id: str) -> str:
         """Retrieves the name of a relation option given its ID."""
         for obj in self.json_objects:
-            if obj.get('sbType') == 'STRelationOption' and obj['snapshot']['data']['details'].get('id') == option_id:
-                return obj['snapshot']['data']['details'].get('name', option_id)
+            data = obj.get('snapshot', {}).get('data', {}) or {}
+            details = data.get('details', {}) or {}
+            if obj.get('sbType') == 'STRelationOption' and details.get('id') == option_id:
+                return details.get('name', option_id)
         return str(option_id)  # Return the ID as a string if the name is not found
