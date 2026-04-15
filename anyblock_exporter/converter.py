@@ -129,11 +129,21 @@ class AnytypeConverter:
         data = snapshot.get('data') or {}
         data_details = data.get('details') or {}
         title = data_details.get('name', 'Untitled')
+        object_id = data_details.get('id') or main_content.get('id')
+        space_id = data_details.get('spaceId')
         blocks = data.get('blocks') or []
         relations = self.relation_handler.extract_relations(main_content)
 
+        anytype_link = None
+        if object_id and space_id:
+            anytype_link = f"anytype: \"[Goto Anytype](https://object.any.coop/{object_id}?spaceId={space_id})\""
+
         markdown_content = "---\n"
         
+        # Add deep link if available
+        if anytype_link:
+            markdown_content += f"{anytype_link}\n"
+            
         if relations:
             for relation in relations:
                 markdown_content += f"{relation}\n"
@@ -145,9 +155,10 @@ class AnytypeConverter:
 
         return markdown_content
         
-    def write_markdown_file(self, content: str, filename: str) -> None:
+    def write_markdown_file(self, content: str, filename: str, subfolder: str = "") -> None:
         try:
-            os.makedirs(self.output_folder, exist_ok=True)
+            target_dir = os.path.join(self.output_folder, subfolder) if subfolder else self.output_folder
+            os.makedirs(target_dir, exist_ok=True)
             
             # Handle blank or empty filenames
             if not filename.strip():
@@ -165,13 +176,13 @@ class AnytypeConverter:
             if not safe_filename.lower().endswith('.md'):
                 safe_filename += '.md'
             
-            file_path = os.path.join(self.output_folder, safe_filename)
+            file_path = os.path.join(target_dir, safe_filename)
             
             # Handle duplicate filenames
             counter = 1
             while os.path.exists(file_path):
                 name, ext = os.path.splitext(safe_filename)
-                file_path = os.path.join(self.output_folder, f"{name}-{counter}{ext}")
+                file_path = os.path.join(target_dir, f"{name}-{counter}{ext}")
                 counter += 1
                 if counter > 1000:  # Prevent infinite loop
                     self.logger.error("Too many duplicate filenames, aborting.")
@@ -207,13 +218,13 @@ class AnytypeConverter:
             self.logger.error(f"Error writing Markdown file '{filename}': {str(e)}")
             fallback_filename = "untitled.md"
             counter = 1
-            while os.path.exists(os.path.join(self.output_folder, fallback_filename)):
+            while os.path.exists(os.path.join(target_dir, fallback_filename)):
                 fallback_filename = f"untitled-{counter}.md"
                 counter += 1
                 if counter > 1000:  # Prevent infinite loop
                     self.logger.error("Too many fallback filenames, aborting.")
                     return
-            fallback_path = os.path.join(self.output_folder, fallback_filename)
+            fallback_path = os.path.join(target_dir, fallback_filename)
             try:
                 with open(fallback_path, 'w', encoding='utf-8') as file:
                     file.write(content)
@@ -236,8 +247,14 @@ class AnytypeConverter:
                     object_id = details.get('id') or main_content.get('id') or "Unknown ID"
                     
                     self.logger.debug(f"Processing object: {object_id} ({title})")
+                    
+                    # Determine subfolder based on object type
+                    object_type_id = details.get('type') or "Page"
+                    object_type_name = self.relation_handler.resolve_name(object_type_id) or "Page"
+                    subfolder = sanitize_filename(object_type_name)
+                    
                     markdown_content = self.compile_markdown(main_content)
-                    self.write_markdown_file(markdown_content, title)
+                    self.write_markdown_file(markdown_content, title, subfolder)
                 except Exception as e:
                     self.logger.error(f"Error processing object {object_id}: {str(e)}")
                     self.logger.error(traceback.format_exc())
